@@ -59,16 +59,14 @@ class PhishtankFeed(Feed):
             offset {str} - The offset phish ID to send to Phishtank
         '''
         if not offset:
-            most_recent_phish = Phish.get_most_recent(feed='phishtank')
-            if most_recent_phish:
+            if most_recent_phish := Phish.get_most_recent(feed='phishtank'):
                 offset = most_recent_phish.pid
             else:
                 # If there is no offset in the db and we weren't given one
                 # as a kwarg, we'll use the one we have listed in the config
                 # (chances are, this means that it's a first-run)
                 offset = self.last_seen
-        logging.info(
-            'Fetching {} feed with last offset: {}'.format(self.feed, offset))
+        logging.info(f'Fetching {self.feed} feed with last offset: {offset}')
         results = []
         params = {'last': offset}
         response = requests.get(
@@ -78,8 +76,9 @@ class PhishtankFeed(Feed):
             auth=(self.username, self.password))
         if not response.ok:
             raise FetchException(
-                'Error fetching response:\nStatus: {}\nResponse:{}'.format(
-                    response.status_code, response.text))
+                f'Error fetching response:\nStatus: {response.status_code}\nResponse:{response.text}'
+            )
+
 
         # The first row is the maximum phish id in our database. 
         # The second row is the minimum phish id in our database
@@ -89,8 +88,9 @@ class PhishtankFeed(Feed):
         entries = response.text.splitlines()
         if not entries or len(entries) < 2:
             raise FetchException(
-                'Error fetching response: Invalid response received: {}'.
-                format(entries))
+                f'Error fetching response: Invalid response received: {entries}'
+            )
+
         # If there are no new entries, just return an empty list
         if len(entries) == 2:
             return results
@@ -102,7 +102,8 @@ class PhishtankFeed(Feed):
         if max_id != self.last_seen:
             # Recursively get the next set of results
             logging.info(
-                'Getting next set of results. Max ID: {} Current ID: {}'.
-                format(max_id, self.last_seen))
+                f'Getting next set of results. Max ID: {max_id} Current ID: {self.last_seen}'
+            )
+
             results.extend(self.get(offset=self.last_seen))
         return results

@@ -29,7 +29,7 @@ def collect_sample():
     c = Collector()
     while True:
         sample = sample_queue.get()
-        logging.info('Processing sample {}'.format(sample.url))
+        logging.info(f'Processing sample {sample.url}')
         try:
             c.collect(sample)
         except Exception as e:

@@ -51,7 +51,8 @@ class OpenphishFeed(Feed):
         response = requests.get(self.url, timeout=5)
         if not response.ok:
             raise FetchException(
-                'Error fetching OpenPhish response:\nStatus: {}\nResponse: {}'.
-                format(response.status_code, response.text))
+                f'Error fetching OpenPhish response:\nStatus: {response.status_code}\nResponse: {response.text}'
+            )
+
         entries = response.text.splitlines()
         return self._process_rows(entries)

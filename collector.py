@@ -94,21 +94,22 @@ class Collector(object):
         '''
         kit = PhishKit.exists(url)
         if kit:
-            logging.info('Kit already exists: {}'.format(url))
+            logging.info(f'Kit already exists: {url}')
             return kit
         try:
             response = self.session.get(
                 url, stream=True, verify=False, timeout=5)
             if not response.ok:
-                logging.info('Invalid response for zip URL: {} : {}'.format(
-                    url, str(response.status_code)))
+                logging.info(
+                    f'Invalid response for zip URL: {url} : {str(response.status_code)}'
+                )
+
                 return kit
             # Shoutout to everyone who doesn't know how to status code
             if 'text/html' in response.headers.get('Content-Type'):
                 return kit
             filename = url.split('/')[-1]
-            filepath = '{}/{}-{}'.format(self.config['kit_directory'], pid,
-                                         filename)
+            filepath = f"{self.config['kit_directory']}/{pid}-{filename}"
             filesize = 0
 
             kit_hash = hashlib.sha1()
@@ -118,7 +119,7 @@ class Collector(object):
                         kit_hash.update(chunk)
                         kit_file.write(chunk)
                         filesize += len(chunk)
-            logging.info('Found kit for {}'.format(url))
+            logging.info(f'Found kit for {url}')
             kit = PhishKit(
                 url=url,
                 filepath=filepath,
@@ -127,7 +128,7 @@ class Collector(object):
                 hash=kit_hash.hexdigest())
             kit.index()
         except Exception as e:
-            logging.info('error for {} : {}'.format(url, e))
+            logging.info(f'error for {url} : {e}')
         return kit
 
     def indexing_enabled(self, url):
@@ -171,8 +172,8 @@ class Collector(object):
 
         # Add the initial paths to our queue
         for i in range(1, len(paths)):
-            phish_url = '{}://{}/{}/'.format(parts.scheme, parts.netloc,
-                                             '/'.join(paths[:len(paths) - i]))
+            phish_url = f"{parts.scheme}://{parts.netloc}/{'/'.join(paths[:len(paths) - i])}/"
+
             queue.put(phish_url)
             crawled.append(phish_url)
 
@@ -180,8 +181,7 @@ class Collector(object):
         # directories in an open index, add those to the queue.
         while not queue.empty():
             phish_url = queue.get()
-            logging.info(
-                'Checking for open directory at: {}'.format(phish_url))
+            logging.info(f'Checking for open directory at: {phish_url}')
 
             links = self.indexing_enabled(phish_url)
             if not links:
@@ -193,8 +193,7 @@ class Collector(object):
                 if link in crawled:
                     continue
                 if link.endswith('.zip'):
-                    kit = self.download_kit(link, sample.pid)
-                    if kit:
+                    if kit := self.download_kit(link, sample.pid):
                         sample.has_kit = True
                         kits.append(kit)
                         kit_urls.append(link)
@@ -205,22 +204,19 @@ class Collector(object):
                     directory_links += 1
                     if directory_links > self.config['max_links_per_directory']:
                         continue
-                    logging.info('Adding URL to Queue: {}'.format(link))
+                    logging.info(f'Adding URL to Queue: {link}')
                     queue.put(link)
                     crawled.append(link)
 
         for phish_url in crawled:
             # Remove the trailing slash and add .zip
-            phish_url = '{}.zip'.format(phish_url[:-1])
+            phish_url = f'{phish_url[:-1]}.zip'
             if phish_url in kit_urls:
-                logging.info(
-                    'Skipping URL since the kit was already downloaded: {}'.
-                    format(phish_url))
+                logging.info(f'Skipping URL since the kit was already downloaded: {phish_url}')
                 continue
-            logging.info('Fetching kit by zip {}'.format(phish_url))
+            logging.info(f'Fetching kit by zip {phish_url}')
 
-            kit = self.download_kit(phish_url, sample.pid)
-            if kit:
+            if kit := self.download_kit(phish_url, sample.pid):
                 sample.has_kit = True
                 kits.append(kit)
         return kits
@@ -237,15 +233,14 @@ class Collector(object):
             html {str} The HTML returned
         '''
 
-        logging.info('Fetching {}'.format(url))
+        logging.info(f'Fetching {url}')
         try:
             response = self.session.get(url, verify=False, timeout=3)
             if not response.ok:
-                logging.debug('Unsuccessful response for sample: {} : {}'.
-                              format(url, response.text))
+                logging.debug(f'Unsuccessful response for sample: {url} : {response.text}')
             return response.status_code, response.text
         except Exception:
-            logging.info('Invalid response for sample: {}'.format(url))
+            logging.info(f'Invalid response for sample: {url}')
             return 0, ''
 
 
@@ -254,13 +249,12 @@ def process_sample(sample):
     try:
         c.collect(sample)
     except Exception as e:
-        logging.info('Error processing sample: {}: {}'.format(
-            sample.url.encode('utf-8'), e))
+        logging.info(f"Error processing sample: {sample.url.encode('utf-8')}: {e}")
 
 
 def main():
     logging.info('---------------------------------------')
-    logging.info('Report for timestamp: {}'.format(datetime.now()))
+    logging.info(f'Report for timestamp: {datetime.now()}')
     logging.info('---------------------------------------')
     pool = Pool(8)
     samples = []
@@ -271,16 +265,18 @@ def main():
         for sample in results:
             clean_url = Phish.clean_url(sample.url)
             if clean_url in urls:
-                logging.info('URL {} appears in both feeds.'.format(clean_url))
+                logging.info(f'URL {clean_url} appears in both feeds.')
                 continue
             urls.append(clean_url)
             samples.append(sample)
 
         if results:
-            logging.info("Found {} {} samples with final pid: {}".format(
-                len(samples), feed.feed, results[-1].pid))
+            logging.info(
+                f"Found {len(samples)} {feed.feed} samples with final pid: {results[-1].pid}"
+            )
+
         else:
-            logging.info("No samples found for {}".format(feed.feed))
+            logging.info(f"No samples found for {feed.feed}")
 
     pool.map(process_sample, samples)
     pool.close()

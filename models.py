@@ -39,8 +39,7 @@ class Phish(object):
         # Strip the trailing slash
         if path and path[-1] == '/':
             path = path[:-1]
-        clean_url = '{}://{}{}'.format(parts.scheme, parts.netloc.encode('utf-8'), path.encode('utf-8', 'ignore'))
-        return clean_url
+        return f"{parts.scheme}://{parts.netloc.encode('utf-8')}{path.encode('utf-8', 'ignore')}"
 
     def to_dict(self):
         ''' Creates a dict representation of the Phish instance that
@@ -76,7 +75,6 @@ class Phish(object):
         url {str} - The URL to the phishing page
         '''
         url = Phish.clean_url(url)
-        exists = False
         result = es.search(
             index=cls._index,
             doc_type=cls._type,
@@ -87,9 +85,7 @@ class Phish(object):
                     'index_url.raw': url
                 }
             }})
-        if result['hits']['total']:
-            exists = True
-        return exists
+        return bool(result['hits']['total'])
 
     @classmethod
     def get_most_recent(cls, feed=None):
@@ -111,8 +107,7 @@ class Phish(object):
                     }
                 }]
             })
-        hits = result['hits']['hits']
-        if hits:
+        if hits := result['hits']['hits']:
             sample = hits[0]['_source']
             most_recent = Phish(url=sample['url'], pid=sample['pid'])
         return most_recent
@@ -184,17 +179,17 @@ class PhishKit(object):
         return kit
 
     @classmethod
-    def from_dict(self, kit_dict):
+    def from_dict(cls, kit_dict):
         ''' Loads and returns a PhishKit instance from a dict found in a response
         from Elasticsearch.
 
         Args:
             kit_dict {dict} - The dictionary to load
         '''
-        kit = PhishKit(
+        return PhishKit(
             hash=kit_dict.get('hash'),
             filepath=kit_dict.get('filepath'),
             filename=kit_dict.get('filename'),
             url=kit_dict.get('url'),
-            emails=kit_dict.get('emails'))
-        return kit
+            emails=kit_dict.get('emails'),
+        )
